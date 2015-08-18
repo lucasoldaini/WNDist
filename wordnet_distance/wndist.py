@@ -105,25 +105,53 @@ class WNDist(object):
         )
         self.memoization = shelve.open(dist_cache_path)
 
+    @property
+    def index(self):
+        return self.wordnet['index']
+
     def syndist(self, s1, s2):
         ck = '{}_{}'.format(s1, s2)
         if ck in self.memoization:
             return self.memoization[ck]
         else:
-            dist = nx.shortest_path_length(self.graph, s1, s2)
+            try:
+                dist = nx.shortest_path_length(self.graph, s1, s2)
+            except nx.exception.NetworkXNoPath:
+                dist = float('inf')
             self.memoization[ck] = dist
         return dist
 
     def lemmasdist(self, l1, l2):
 
-        if l1 not in self.wordnet['index'] or l2 not in self.wordnet['index']:
+        pos1 = pos2 = None
+
+        if type(l1) == type(l2) == tuple:
+            pos1, pos2 = l1[1][0].lower(), l2[1][0].lower()
+            l1, l2 = l1[0], l2[0]
+
+            print (pos1, pos2)
+
+            if pos1 != pos2:
+                # the PoS of the two lemmas are different, return inf
+                return [float('inf')]
+
+        if l1 not in self.index or l2 not in self.index:
             return [float('inf')]
 
         distances = []
 
-        for w1, w2 in product(self.wordnet['index'][l1],
-                              self.wordnet['index'][l2]):
+        for w1, w2 in product(self.index[l1],
+                              self.index[l2]):
             if w1[0] != w2[0]:
+                continue
+
+            print(w1[0], w2[0], pos1, pos2)
+
+            not_matching_pos = (
+                ((pos1 is not None) and (pos2 is not None)) and
+                (w1[0] != pos1 or w2[0] != pos2)
+            )
+            if not_matching_pos:
                 continue
 
             dist = self.syndist(w1, w2)
@@ -131,4 +159,4 @@ class WNDist(object):
             if dist < float('inf'):
                 distances.insert(bisect.bisect(distances, dist), dist)
 
-        return distances
+        return distances if len(distances) > 0 else [float('inf')]

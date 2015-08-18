@@ -59,3 +59,4 @@ target/
 # Project specific
 cache/*
 dict/*
+.DS_Store
